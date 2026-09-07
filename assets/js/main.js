@@ -103,7 +103,7 @@ function initHero(){
     b.href = C.resume.file;
     b.setAttribute('download', C.resume.filename || 'resume.pdf');
     b.hidden = false;
-    b.addEventListener('click', () => Visits.action('resume'));
+    wireResumeDownload(b, C.resume.file, C.resume.filename || 'resume.pdf');
   }
 
   // social row
@@ -138,6 +138,38 @@ function initHero(){
     else if (ch > 0)                   { ch--; setTimeout(type, 28); }
     else                               { del = false; w = (w + 1) % words.length; setTimeout(type, 260); }
   })();
+}
+
+
+/* ── resume download ─────────────────────────────────────────────────
+   A bare `download` attribute is unreliable: static hosts can't send a
+   Content-Disposition header, so Safari (and iOS in particular) opens the
+   PDF instead of saving it. Fetching it as a blob forces a real save and
+   guarantees the filename. Falls back to opening the file if that fails.
+   ------------------------------------------------------------------ */
+function wireResumeDownload(btn, file, filename){
+  btn.addEventListener('click', async e => {
+    Visits.action('resume');
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return;   // let power users open a tab
+    e.preventDefault();
+    const original = btn.innerHTML;
+    try {
+      btn.style.pointerEvents = 'none';
+      const res = await fetch(file, { cache: 'no-store' });
+      if (!res.ok) throw new Error('fetch failed');
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      toast('Resume downloaded');
+    } catch {
+      window.open(file, '_blank', 'noopener');           // last resort: just show it
+    } finally {
+      btn.style.pointerEvents = '';
+      btn.innerHTML = original;
+    }
+  });
 }
 
 /* ── projects + live demos ──────────────────────────────────────── */
@@ -307,20 +339,33 @@ function initResume(){
 
   const dl = $('#resumeDownload');
   dl.href = r.file; dl.setAttribute('download', r.filename || 'resume.pdf');
-  dl.addEventListener('click', () => Visits.action('resume'));
+  wireResumeDownload(dl, r.file, r.filename || 'resume.pdf');
   $('#resumeOpen').href = r.file;
   if (has(r.lastUpdated)) $('#resumeUpdated').textContent = `Last updated ${r.lastUpdated}`;
 
   if (r.inlineViewer !== false) {
-    // object → native PDF viewer where supported, graceful message where not (iOS Safari)
-    $('#pdfFrame').innerHTML = `
-      <object data="${esc(r.file)}#toolbar=1&navpanes=0&view=FitH" type="application/pdf"
-              style="display:block;width:100%;height:min(78vh,940px)">
-        <div class="pdf-fallback">
-          <p>Your browser can't display the PDF inline.</p>
-          <p style="margin-top:14px"><a class="btn btn-primary" href="${esc(r.file)}" target="_blank" rel="noopener">Open the resume</a></p>
-        </div>
-      </object>`;
+    // iOS/iPadOS Safari renders <object> PDFs as a blank box rather than falling
+    // back, so give those devices the explicit card instead of an empty frame.
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    $('#pdfFrame').innerHTML = iOS
+      ? `<div class="pdf-fallback">
+           <p><strong>Open the resume</strong></p>
+           <p style="margin-top:6px;font-size:14px">iPhones and iPads can't preview PDFs inside a page.</p>
+           <p style="margin-top:16px">
+             <a class="btn btn-primary" href="${esc(r.file)}" target="_blank" rel="noopener">View PDF</a>
+           </p>
+           <p style="margin-top:12px;font-size:12.5px;color:var(--text-3)">
+             To save it: open, then tap Share → Save to Files.
+           </p>
+         </div>`
+      : `<object data="${esc(r.file)}#toolbar=1&navpanes=0&view=FitH" type="application/pdf"
+                 style="display:block;width:100%;height:min(78vh,940px)">
+           <div class="pdf-fallback">
+             <p>Your browser can't display the PDF inline.</p>
+             <p style="margin-top:14px"><a class="btn btn-primary" href="${esc(r.file)}" target="_blank" rel="noopener">Open the resume</a></p>
+           </div>
+         </object>`;
   } else {
     $('#pdfFrame').hidden = true;
   }
