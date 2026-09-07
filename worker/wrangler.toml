@@ -1,0 +1,15 @@
+name = "saahil-portfolio-visits"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Created by:  wrangler d1 create portfolio-visits
+# Paste the database_id it prints into the line below.
+[[d1_databases]]
+binding       = "DB"
+database_name = "portfolio-visits"
+database_id   = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+
+[vars]
+# Any random string. Only used to salt the IP hash so unique-visitor counting
+# works without ever storing an actual IP address.
+IP_SALT = "change-this-to-any-random-string"
