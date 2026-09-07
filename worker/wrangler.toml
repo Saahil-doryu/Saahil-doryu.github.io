@@ -7,9 +7,9 @@ compatibility_date = "2025-01-01"
 [[d1_databases]]
 binding       = "DB"
 database_name = "portfolio-visits"
-database_id   = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+database_id   = "8c3f49bf-3832-4677-85a6-d62b76027353"
 
 [vars]
 # Any random string. Only used to salt the IP hash so unique-visitor counting
 # works without ever storing an actual IP address.
-IP_SALT = "change-this-to-any-random-string"
+IP_SALT = "c419b76478827c67be94ee96927cb988"

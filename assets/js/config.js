@@ -202,7 +202,7 @@ const CONFIG = {
        dashboard. Setup: worker/setup.sh. If goatcounter above is set,
        this is ignored.
        --------------------------------------------------------------- */
-    apiUrl: ""
+    apiUrl: "https://saahil-portfolio-visits.darisipudisaahil91.workers.dev"
   },
 
 
