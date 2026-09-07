@@ -147,7 +147,7 @@ export default {
 
         const limit = Math.min(Number(url.searchParams.get('limit')) || 100, 500);
         const [visits, events, s] = await Promise.all([
-          env.DB.prepare('SELECT ts,city,region,country,cc,org,source,ref,device,os,browser,path FROM visits ORDER BY ts DESC LIMIT ?1').bind(limit).all(),
+          env.DB.prepare('SELECT ts,sid,city,region,country,cc,org,source,ref,device,os,browser,path FROM visits ORDER BY ts DESC LIMIT ?1').bind(limit).all(),
           env.DB.prepare('SELECT ts,kind,detail,sid FROM events ORDER BY ts DESC LIMIT ?1').bind(limit).all(),
           stats(env)
         ]);

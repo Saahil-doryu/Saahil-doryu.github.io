@@ -184,12 +184,26 @@ const Visits = (() => {
     if (!box) return;
     const { visits = [], events = [], stats: s } = data;
 
-    const evByTime = events.slice(0, 40).map(e => `
-      <li class="ev">
+    // Attach each action to the person who did it, via their session id.
+    const bySid = {};
+    visits.forEach(v => { if (v.sid && !bySid[v.sid]) bySid[v.sid] = v; });
+
+    const evByTime = events.slice(0, 40).map(e => {
+      const v   = bySid[e.sid];
+      const who = v
+        ? `${flag(v.cc)} ${esc(place(v))}${v.source && v.source !== 'Direct' ? ` · via ${esc(v.source)}` : ''}`
+        : 'visitor no longer in the log';
+      const hot = v && HOT.test(v.source || '');
+      return `
+      <li class="ev${hot ? ' ev-hot' : ''}">
         <span class="ev-dot"></span>
-        <span><b>${esc(EVENT_LABEL[e.kind] || e.kind)}</b>${e.detail ? ` — ${esc(e.detail)}` : ''}</span>
+        <span class="ev-txt">
+          <b>${hot ? '🔥 ' : ''}${esc(EVENT_LABEL[e.kind] || e.kind)}</b>${e.detail ? ` — ${esc(e.detail)}` : ''}
+          <span class="ev-who">${who}</span>
+        </span>
         <time>${esc(when(e.ts))}</time>
-      </li>`).join('');
+      </li>`;
+    }).join('');
 
     const rows = visits.map(v => `
       <tr${HOT.test(v.source || '') ? ' class="hot"' : ''}>
@@ -208,7 +222,10 @@ const Visits = (() => {
         <div><b>${nf.format(s?.countries ?? 0)}</b><span>countries</span></div>
       </div>
 
-      ${events.length ? `<h4 class="admin-h">What people did</h4><ul class="ev-list">${evByTime}</ul>` : ''}
+      <h4 class="admin-h">What people did</h4>
+      ${events.length
+        ? `<ul class="ev-list">${evByTime}</ul>`
+        : '<p class="admin-empty">No resume downloads or demo launches yet.</p>'}
 
       <h4 class="admin-h">Who opened your page</h4>
       ${visits.length ? `
