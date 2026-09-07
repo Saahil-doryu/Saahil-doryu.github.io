@@ -4,7 +4,7 @@
    Anything left as "" (empty string) is automatically hidden from the page.
 
    ⚠️  STILL TO FILL IN — search for "TODO" in this file:
-       · analytics.apiUrl  — after you deploy the Worker (README step 4)
+       · analytics.goatcounter — your GoatCounter code (README step 4)
        · links.instagram   — or leave "" and it disappears from the site
        · repo: ""          — on the 4 projects that have no GitHub repo yet
    ========================================================================= */
@@ -177,19 +177,32 @@ const CONFIG = {
 
 
   /* ---------------------------------------------------------------------
-     7. VISITOR COUNTER + YOUR PRIVATE LOG        (README step 4)
+     7. SEEING WHO VISITS                          (README step 4)
 
-     Everyone who opens your site sees a number — how many people have visited.
-     Only you can see who they were. Open your site with ?admin=1, enter your
-     owner key once, and the log unlocks on that device.
+     ── EASY (recommended) ──────────────────────────────────────────────
+     GoatCounter. Free, no card, no command line, about 3 minutes:
 
-     Leave apiUrl as "" until you have deployed the Worker; the whole section
-     simply stays hidden and the rest of the site works normally.
+       1. Go to https://www.goatcounter.com/signup
+       2. Pick a code — say "saahil". That becomes saahil.goatcounter.com
+       3. Settings → tick "Allow adding visitor counter to your website"
+          (this is what lets the number show on your page)
+       4. Put that code below, then commit and push.
+
+     Your dashboard at https://<code>.goatcounter.com is private to your
+     login and shows every visit: country, referrer, browser, screen size,
+     and timestamps. Resume downloads and demo launches show up there too,
+     as events. Visitors to your site only ever see the number.
      ------------------------------------------------------------------ */
   analytics: {
-    // The URL wrangler prints after `wrangler deploy`.
-    // e.g. "https://saahil-portfolio-visits.saahil-doryu.workers.dev"
-    apiUrl: ""                                   // TODO after step 4
+    goatcounter: "",     // ← just your code, e.g. "saahil"
+
+    /* ── ADVANCED (optional, ignore unless you want it) ────────────────
+       Self-hosted counter on Cloudflare, which puts the full visitor log
+       on the page itself behind an owner key instead of on someone else's
+       dashboard. Setup: worker/setup.sh. If goatcounter above is set,
+       this is ignored.
+       --------------------------------------------------------------- */
+    apiUrl: ""
   },
 
 

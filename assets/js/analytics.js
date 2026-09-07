@@ -12,6 +12,7 @@
 const Visits = (() => {
   const cfg = (window.CONFIG && CONFIG.analytics) || {};
   const API = String(cfg.apiUrl || '').replace(/\/+$/, '');
+  const GC  = String(cfg.goatcounter || '').trim();   // easy mode
 
   const K = { owner:'pf_owner_muted', key:'pf_owner_key', sid:'pf_sid', stats:'pf_stats_cache' };
 
@@ -142,6 +143,7 @@ const Visits = (() => {
 
   function action(kind, detail = ''){
     if (!state.active) return;
+    if (GC) { gcEvent(kind, detail); return; }
     post('/event', { sid: state.sid, kind, detail });
   }
 
@@ -267,9 +269,70 @@ const Visits = (() => {
     });
   }
 
+  /* ══════════════════ EASY MODE: GOATCOUNTER ══════════════════
+     One script tag. Your dashboard lives at https://<code>.goatcounter.com
+     and is private to your login. The number below is the only thing
+     visitors can see.
+     ───────────────────────────────────────────────────────────── */
+  const gcOrigin = () => `https://${GC}.goatcounter.com`;
+
+  function loadGoatCounter(){
+    // GoatCounter's own opt-out flag — this is how your own visits stay uncounted.
+    if (isOwner()) { try { localStorage.setItem('skipgc','t'); } catch {} }
+
+    const sc = document.createElement('script');
+    sc.async = true;
+    sc.src = 'https://gc.zgo.at/count.js';
+    sc.setAttribute('data-goatcounter', gcOrigin() + '/count');
+    document.head.appendChild(sc);
+  }
+
+  async function paintGoatCount(){
+    const sec = document.getElementById('visitors');
+    try {
+      // The path is the full path including its leading slash, hence "//".
+      const r = await fetch(`${gcOrigin()}/counter//.json`);
+      if (!r.ok) throw 0;
+      const d = await r.json();
+      // count_unique = distinct people; count = pageviews. Prefer the former,
+      // and note both arrive as formatted strings like "295,424".
+      const raw = d.count_unique ?? d.count;
+      const n = parseInt(String(raw).replace(/[^\d]/g,''), 10);
+      if (!Number.isFinite(n)) throw 0;
+
+      const el = document.getElementById('statUnique');
+      if (el) countUp(el, n);
+      const cap = document.querySelector('.stat-cap');
+      if (cap) cap.textContent = n === 1 ? 'person has visited this page'
+                                         : 'people have visited this page';
+      // GoatCounter's public endpoint gives one number, so drop the extra tiles.
+      document.querySelector('.stat-row')?.remove();
+      if (sec) sec.hidden = false;
+    } catch {
+      // Counter not public yet, or blocked. Hide rather than show a broken zero.
+      if (sec) sec.hidden = true;
+    }
+  }
+
+  function gcEvent(kind, detail){
+    try {
+      window.goatcounter?.count?.({
+        path:  'event-' + kind,
+        title: detail || kind,
+        event: true
+      });
+    } catch {}
+  }
+
   /* ══════════════════ BOOT ══════════════════ */
   async function init(){
-    if (!API) {                       // Worker not deployed yet — site still works.
+    if (GC) {                         // easy mode
+      state.active = !isOwner() && !isBot();
+      loadGoatCounter();
+      paintGoatCount();
+      return;
+    }
+    if (!API) {                       // nothing configured — site still works fine.
       const sec = document.getElementById('visitors');
       if (sec) sec.hidden = true;
       return;

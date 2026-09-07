@@ -38,7 +38,7 @@ degrees, your Kyndryl role, and **6 projects**. The site is ready to publish.
 |----------------------------|------------------------------------------------------|
 | `links.instagram`          | your Instagram URL — or leave `""` and it disappears |
 | `index.html` `<head>`      | if you change name/role/summary, update it there too |
-| `analytics.apiUrl`         | your Worker URL (after step 4)                       |
+| `analytics.goatcounter`    | your GoatCounter code (step 4) — 3 minutes           |
 
 Two projects are already linked to your repos (`satellite-image-change-detection` and
 `ClearpassAI`). The other four have `repo: ""` because no matching public repo exists yet —
@@ -99,91 +99,57 @@ instead of looking broken.
 > anywhere. Hugging Face Spaces, Streamlit Cloud, Render, and Vercel all allow it. If a
 > demo stays blank, that header is why — use `live:` for an "Open live" button instead.
 
-## Step 4 — Turn on the visitor counter
+## Step 4 — Seeing who visits
 
-This gives you two things at once:
+Two options. **Take the first one.**
 
-* **Everyone** who opens your site sees a number — how many people have visited. Nothing else.
-* **Only you** can see who they were: city, network, where they came from, what device,
-  and what they did (downloaded your resume, launched a demo). You open it with `?admin=1`
-  and a key that only you know.
+### Easy — GoatCounter (about 3 minutes, no command line)
 
-The counter runs on a Cloudflare Worker with a D1 database. Free tier, no credit card,
-and far more capacity than a portfolio will ever use.
+1. Sign up at **https://www.goatcounter.com/signup** — free, no card.
+2. Pick a code, e.g. `saahil`. Your dashboard becomes `saahil.goatcounter.com`.
+3. In GoatCounter → **Settings**, tick **“Allow adding visitor counter to your website.”**
+   Without this the number on your page stays hidden.
+4. Put the code in `config.js`:
 
-**Run this one command:**
+   ```js
+   analytics: {
+     goatcounter: "saahil",
+     apiUrl: ""
+   }
+   ```
+5. Publish it:
+
+   ```bash
+   cd /Users/saahil/Documents/Claude/portfolio
+   git add -A && git commit -m "Enable visitor counter" && git push
+   ```
+
+Done. Your page shows a live visitor number, and **https://saahil.goatcounter.com** —
+private to your login — shows each visit: country, referrer (so you can tell a LinkedIn
+click from a Google search), browser, screen size and time. Resume downloads and demo
+launches appear there as events named `event-resume` and `event-demo`.
+
+Your own visits aren't counted, because the site sets GoatCounter's `skipgc` opt-out for
+you whenever you've marked yourself as owner with `?owner=1`.
+
+> **What this can't do:** no analytics tool can tell you a visitor's *name* or email. You
+> get city/country, where they came from, and what they clicked. "Someone in Chicago came
+> from LinkedIn and downloaded your resume" is the level of detail available — from any
+> tool, not just this one.
+
+### Advanced — self-hosted on Cloudflare (optional)
+
+Only worth it if you want the full visitor log **on your own page**, behind an owner key,
+instead of on GoatCounter's dashboard. It costs nothing but needs a Cloudflare account and
+five minutes in a terminal:
 
 ```bash
 cd portfolio/worker && ./setup.sh
 ```
 
-It logs you into Cloudflare (a browser window opens once — create the free account if you
-don't have one), creates the database, generates a random owner key, deploys the API, and
-writes the resulting URL into `config.js` for you.
-
-It prints your **owner key** at the end. **Save it** — it isn't stored anywhere and can't be
-shown again. If you lose it, run `npx wrangler@3 secret put OWNER_KEY` to set a new one.
-
-Then publish the change:
-
-```bash
-cd .. && git add -A && git commit -m "Enable visitor counter" && git push
-```
-
-<details>
-<summary>Doing it manually instead</summary>
-
-```bash
-cd portfolio/worker
-npx wrangler@3 login
-npx wrangler@3 d1 create portfolio-visits     # paste the database_id into wrangler.toml
-npx wrangler@3 d1 execute portfolio-visits --remote --file=schema.sql
-npx wrangler@3 secret put OWNER_KEY           # type a long random string
-npx wrangler@3 deploy                         # put the printed URL in config.js → analytics.apiUrl
-```
-</details>
-
-> Wrangler 4 requires Node 22 and you're on 20, which is why every command above pins
-> `wrangler@3`. Both work identically here.
-
-### Using your private log
-
-Open **`your-site-url/?admin=1`**, enter your owner key once, and the log unlocks. The key
-is stored in that browser, so afterwards the panel just appears whenever you visit. There's
-a **Lock this panel** button to clear it.
-
-What you'll see:
-
-```
-1  unique visitors     4  total views     4  today     1  countries
-
-WHAT PEOPLE DID
-  ● launched a demo — Clothing Classification under Noisy Labels    2m ago
-  ● downloaded your resume                                          3m ago
-
-WHO OPENED YOUR PAGE
-  2m ago   🇺🇸 St. Louis, Missouri, United States    🔥 LinkedIn   Desktop · macOS · Chrome
-                Charter Communications LLC
-  5m ago   🇮🇳 Bengaluru, Karnataka, India              GitHub     Phone · iOS · Safari
-```
-
-Rows marked 🔥 came from LinkedIn or a job board — those are the ones worth noticing.
-
-**Your own visits are never counted.** Once you've unlocked the panel the site knows it's
-you. On a device where you haven't unlocked it, visit `?owner=1` once to mute it there too.
-Bots and crawlers are filtered automatically, on both the page and the server.
-
-### What is and isn't stored
-
-Stored: approximate city and country (from Cloudflare, no third-party lookup), network
-name, referrer, browser/OS/device type, timestamp.
-
-**Not stored: the visitor's IP address.** It's hashed with your salt purely so unique
-visitors can be counted, and the hash can't be reversed back to an address. No cookies are
-set. The public `/stats` endpoint returns only integers — there is no way for a visitor to
-read the log without your key.
-
----
+The script logs you in, creates the database, generates your owner key, deploys, and writes
+the URL into `config.js`. Then open `your-site/?admin=1` and paste the key. If
+`goatcounter` is set, this is ignored — pick one.
 
 ## Step 5 — Publish to GitHub Pages
 
