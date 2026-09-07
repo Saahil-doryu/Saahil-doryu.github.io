@@ -111,38 +111,40 @@ This gives you two things at once:
 The counter runs on a Cloudflare Worker with a D1 database. Free tier, no credit card,
 and far more capacity than a portfolio will ever use.
 
-> **Node 22+ is required** for the current Wrangler. Check with `node -v`. If you're on 20,
-> either upgrade (`brew install node`) or use the pinned older version shown below —
-> both work.
+**Run this one command:**
+
+```bash
+cd portfolio/worker && ./setup.sh
+```
+
+It logs you into Cloudflare (a browser window opens once — create the free account if you
+don't have one), creates the database, generates a random owner key, deploys the API, and
+writes the resulting URL into `config.js` for you.
+
+It prints your **owner key** at the end. **Save it** — it isn't stored anywhere and can't be
+shown again. If you lose it, run `npx wrangler@3 secret put OWNER_KEY` to set a new one.
+
+Then publish the change:
+
+```bash
+cd .. && git add -A && git commit -m "Enable visitor counter" && git push
+```
+
+<details>
+<summary>Doing it manually instead</summary>
 
 ```bash
 cd portfolio/worker
-
-# 1. Log in to Cloudflare (opens your browser; create a free account if needed)
 npx wrangler@3 login
-
-# 2. Create the database
-npx wrangler@3 d1 create portfolio-visits
-```
-
-That prints a `database_id`. **Paste it into `wrangler.toml`**, replacing
-`PASTE_YOUR_D1_DATABASE_ID_HERE`. While you're in that file, change `IP_SALT` to any
-random string.
-
-```bash
-# 3. Create the tables
+npx wrangler@3 d1 create portfolio-visits     # paste the database_id into wrangler.toml
 npx wrangler@3 d1 execute portfolio-visits --remote --file=schema.sql
-
-# 4. Set your owner key — this is the password for your private log.
-#    Make it long and random. You'll type it into the site once.
-npx wrangler@3 secret put OWNER_KEY
-
-# 5. Deploy
-npx wrangler@3 deploy
+npx wrangler@3 secret put OWNER_KEY           # type a long random string
+npx wrangler@3 deploy                         # put the printed URL in config.js → analytics.apiUrl
 ```
+</details>
 
-Wrangler prints a URL like `https://saahil-portfolio-visits.saahil-doryu.workers.dev`.
-**Put that in `config.js` → `analytics.apiUrl`.** Done.
+> Wrangler 4 requires Node 22 and you're on 20, which is why every command above pins
+> `wrangler@3`. Both work identically here.
 
 ### Using your private log
 
