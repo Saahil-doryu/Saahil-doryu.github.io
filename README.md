@@ -30,9 +30,14 @@ degrees, your Kyndryl role, and **6 projects**. The site is ready to publish.
 
 **Two things are still missing.** Search `config.js` for `TODO`:
 
+> Note: your name, role and summary also appear literally in `index.html`'s `<head>` and
+> hero. That is deliberate — LinkedIn, WhatsApp and Slack link previews don't run
+> JavaScript, so without it your link previews come out blank. Change both places.
+
 | Line in `config.js`        | What to put there                                    |
 |----------------------------|------------------------------------------------------|
 | `links.instagram`          | your Instagram URL — or leave `""` and it disappears |
+| `index.html` `<head>`      | if you change name/role/summary, update it there too |
 | `analytics.apiUrl`         | your Worker URL (after step 4)                       |
 
 Two projects are already linked to your repos (`satellite-image-change-detection` and
