@@ -221,22 +221,11 @@
 
 <!-- ══════════════════════════════ VISITORS ══════════════════════════════ -->
 <section class="section alt" id="visitors" hidden>
-  <div class="wrap">
+  <div class="wrap admin-only">
 
-    <!-- Public: numbers only. Nothing here identifies anybody. -->
-    <div class="stats">
-      <div class="stat-hero">
-        <span class="stat-num" id="statUnique">0</span>
-        <span class="stat-cap">people have visited this page</span>
-      </div>
-      <div class="stat-row">
-        <div><b id="statTotal">0</b><span>total views</span></div>
-        <div><b id="statWeek">0</b><span>this week</span></div>
-        <div><b id="statCountries">0</b><span>countries</span></div>
-      </div>
-    </div>
+    <!-- Nothing here is public. Visitors see no counter and no stats at all;
+         this section stays hidden unless the owner key unlocks it. -->
 
-    <!-- Private: only unlocks with the owner key. Visit ?admin=1 -->
     <div class="admin" id="adminPanel" hidden>
       <div class="admin-head">
         <h3>Visitor log</h3>

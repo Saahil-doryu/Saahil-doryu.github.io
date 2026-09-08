@@ -90,55 +90,23 @@ const Visits = (() => {
     } catch { return null; }
   }
 
-  /* ══════════════════ PUBLIC COUNTER ══════════════════ */
+  /* ══════════════════ NUMBER FORMATTING ══════════════════
+     There is deliberately no public counter. Visitors are shown nothing —
+     no total, no visitor count, no country list. Every figure lives behind
+     the owner key, and the server refuses to hand any of it out without it.
+     ───────────────────────────────────────────────────── */
   const nf = new Intl.NumberFormat('en-US');
-
-  function paintStats(s){
-    if (!s) return;
-    state.stats = s;
-    S.set(K.stats, JSON.stringify(s));
-    const put = (id, val) => {
-      const el = document.getElementById(id);
-      if (el) countUp(el, Number(val) || 0);
-    };
-    put('statUnique',    s.unique);
-    put('statTotal',     s.total);
-    put('statWeek',      s.week);
-    put('statCountries', s.countries);
-
-    const cap = document.querySelector('.stat-cap');
-    if (cap) cap.textContent = Number(s.unique) === 1
-      ? 'person has visited this page'
-      : 'people have visited this page';
-    const sec = document.getElementById('visitors');
-    if (sec) sec.hidden = false;
-  }
-
-  function countUp(el, target){
-    const from = Number(String(el.textContent).replace(/[^\d]/g,'')) || 0;
-    if (from === target) { el.textContent = nf.format(target); return; }
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      el.textContent = nf.format(target); return;
-    }
-    const t0 = performance.now(), dur = 900;
-    (function step(t){
-      const p = Math.min((t - t0) / dur, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      el.textContent = nf.format(Math.round(from + (target - from) * eased));
-      if (p < 1) requestAnimationFrame(step);
-    })(performance.now());
-  }
 
   /* ══════════════════ RECORDING ══════════════════ */
   async function recordVisit(){
     const d = ua();
-    const res = await post('/visit', {
+    // Fire and forget: the response carries nothing the visitor may see.
+    await post('/visit', {
       sid:   state.sid,
       ref:   document.referrer && !document.referrer.includes(location.hostname) ? document.referrer : '',
       path:  location.pathname + location.search.replace(/[?&](owner|admin)=[^&]*/g,''),
       ...d
     });
-    paintStats(res || await getStats());
   }
 
   function action(kind, detail = ''){
@@ -352,9 +320,13 @@ const Visits = (() => {
   function initAdmin(){
     const wantsAdmin = new URLSearchParams(location.search).has('admin');
     const panel = document.getElementById('adminPanel');
+    const sec   = document.getElementById('visitors');
     if (!panel || !API) return;
+    // Without ?admin=1 or a stored key the whole section stays hidden, so an
+    // ordinary visitor sees no trace that any of this exists.
     if (!wantsAdmin && !ownerKey()) return;
 
+    if (sec) sec.hidden = false;
     panel.hidden = false;
 
     const saved = ownerKey();
@@ -387,33 +359,6 @@ const Visits = (() => {
     document.head.appendChild(sc);
   }
 
-  async function paintGoatCount(){
-    const sec = document.getElementById('visitors');
-    try {
-      // The path is the full path including its leading slash, hence "//".
-      const r = await fetch(`${gcOrigin()}/counter//.json`);
-      if (!r.ok) throw 0;
-      const d = await r.json();
-      // count_unique = distinct people; count = pageviews. Prefer the former,
-      // and note both arrive as formatted strings like "295,424".
-      const raw = d.count_unique ?? d.count;
-      const n = parseInt(String(raw).replace(/[^\d]/g,''), 10);
-      if (!Number.isFinite(n)) throw 0;
-
-      const el = document.getElementById('statUnique');
-      if (el) countUp(el, n);
-      const cap = document.querySelector('.stat-cap');
-      if (cap) cap.textContent = n === 1 ? 'person has visited this page'
-                                         : 'people have visited this page';
-      // GoatCounter's public endpoint gives one number, so drop the extra tiles.
-      document.querySelector('.stat-row')?.remove();
-      if (sec) sec.hidden = false;
-    } catch {
-      // Counter not public yet, or blocked. Hide rather than show a broken zero.
-      if (sec) sec.hidden = true;
-    }
-  }
-
   function gcEvent(kind, detail){
     try {
       window.goatcounter?.count?.({
@@ -426,10 +371,9 @@ const Visits = (() => {
 
   /* ══════════════════ BOOT ══════════════════ */
   async function init(){
-    if (GC) {                         // easy mode
+    if (GC) {                         // easy mode: dashboard only, no on-page number
       state.active = !isOwner() && !isBot();
       loadGoatCounter();
-      paintGoatCount();
       return;
     }
     if (!API) {                       // nothing configured — site still works fine.
@@ -439,15 +383,11 @@ const Visits = (() => {
     }
     state.sid = sessionId();
 
-    // Show a cached number immediately so the section isn't blank on load.
-    try { paintStats(JSON.parse(S.get(K.stats) || 'null')); } catch {}
-
     initMessageForm();
     initAdmin();
 
-    if (isOwner() || isBot()) {        // your visits and bots: show numbers, record nothing
+    if (isOwner() || isBot()) {        // you and bots: never recorded
       state.active = false;
-      paintStats(await getStats());
       return;
     }
     state.active = true;

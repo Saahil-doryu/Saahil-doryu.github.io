@@ -1,16 +1,21 @@
 /* ============================================================================
    Visitor counter + private visit log for the portfolio.
 
-   Public endpoints (anyone, including your site's visitors):
-     POST /visit   record a visit, returns the running total
-     POST /event   record a resume download / demo launch / contact reveal
-     GET  /stats   { total, today, week, countries } — just numbers, nothing personal
+   Write-only for the public. Visitors can add to the log but can never read
+   any part of it — not the log, not the totals, not even how many people
+   have visited. Every read is gated by the OWNER_KEY secret.
 
-   Private endpoint (you only — requires the OWNER_KEY secret):
-     GET  /log     the full visit list: who, where from, what they did
+   Public (write only, and each reply is a bare acknowledgement):
+     POST /visit     record a visit
+     POST /event     record a resume download / demo launch / contact reveal
+     POST /message   store a message left through the form
 
-   Nobody can read /log without the key. Raw IP addresses are never stored —
-   only a salted hash, used to count unique visitors.
+   Private (require the OWNER_KEY secret):
+     GET  /log       who visited, where from, what they did, their messages
+     GET  /stats     the aggregate counts
+
+   Raw IP addresses are never stored — only a salted hash, used to count
+   unique visitors and to rate-limit the message form.
 
    Setup is in README.md → "Step 4".
    ========================================================================= */
@@ -86,7 +91,7 @@ export default {
         const body = await request.json().catch(() => ({}));
 
         // Bots never count.
-        if (isBot(ua)) return json({ ok: true, counted: false, ...(await stats(env)) }, origin);
+        if (isBot(ua)) return json({ ok: true, counted: false }, origin);
 
         const sid = String(body.sid || '').slice(0, 40);
         const now = Date.now();
@@ -96,7 +101,7 @@ export default {
           const seen = await env.DB.prepare(
             'SELECT 1 FROM visits WHERE sid = ?1 AND ts > ?2 LIMIT 1'
           ).bind(sid, now - 6 * 3600000).first();
-          if (seen) return json({ ok: true, counted: false, ...(await stats(env)) }, origin);
+          if (seen) return json({ ok: true, counted: false }, origin);
         }
 
         const cf = request.cf || {};
@@ -117,7 +122,7 @@ export default {
           String(body.path || '/').slice(0, 120)
         ).run();
 
-        return json({ ok: true, counted: true, ...(await stats(env)) }, origin);
+        return json({ ok: true, counted: true }, origin);
       }
 
       /* ───────────── POST /event ───────────── */
@@ -179,16 +184,17 @@ export default {
         return json({ ok: true }, origin);
       }
 
-      /* ───────────── GET /stats  (public — numbers only) ───────────── */
-      if (path === '/stats' && request.method === 'GET')
+      /* ───────────── GET /stats  (private — owner key required) ─────────────
+         Deliberately NOT public. Nobody but the owner may learn how many
+         people have visited, so this is gated exactly like /log.          */
+      if (path === '/stats' && request.method === 'GET') {
+        if (!isOwner(request, env)) return json({ error: 'Not authorised' }, origin, 401);
         return json(await stats(env), origin);
+      }
 
       /* ───────────── GET /log  (private — needs your key) ───────────── */
       if (path === '/log' && request.method === 'GET') {
-        const auth = request.headers.get('Authorization') || '';
-        const key  = auth.replace(/^Bearer\s+/i, '');
-        if (!env.OWNER_KEY || !timingSafeEqual(key, env.OWNER_KEY))
-          return json({ error: 'Not authorised' }, origin, 401);
+        if (!isOwner(request, env)) return json({ error: 'Not authorised' }, origin, 401);
 
         const limit = Math.min(Number(url.searchParams.get('limit')) || 100, 500);
         const [visits, events, messages, s] = await Promise.all([
@@ -213,7 +219,13 @@ export default {
   }
 };
 
-/* Public numbers. Deliberately contains nothing that identifies anyone. */
+/* Is this request carrying the owner key? */
+function isOwner(request, env) {
+  const key = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  return !!env.OWNER_KEY && timingSafeEqual(key, env.OWNER_KEY);
+}
+
+/* Aggregate counts. Only ever returned to the owner. */
 async function stats(env) {
   const now = Date.now();
   const row = await env.DB.prepare(`
