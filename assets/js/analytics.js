@@ -190,6 +190,37 @@ const Visits = (() => {
   const flag = cc => !cc ? '🌐' : cc.toUpperCase().replace(/./g,
     c => String.fromCodePoint(127397 + c.charCodeAt(0)));
 
+  /* ── day grouping ─────────────────────────────────────────────────
+     Days are your local days, so "Today" means today where you are.   */
+  const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dayKey     = ts => startOfDay(new Date(Number(ts)));
+
+  function dayLabel(ts){
+    const d = new Date(Number(ts));
+    const diff = Math.round((startOfDay(new Date()) - startOfDay(d)) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff < 7)   return d.toLocaleDateString(undefined, { weekday:'long' });
+    return d.toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' });
+  }
+
+  const clockOf = ts => new Date(Number(ts))
+    .toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+
+  /* Rows arrive newest-first, so the groups come out in order too. */
+  function groupByDay(items){
+    const groups = [];
+    for (const it of items) {
+      const k = dayKey(it.ts);
+      let g = groups[groups.length - 1];
+      if (!g || g.key !== k) { g = { key:k, label:dayLabel(it.ts), items:[] }; groups.push(g); }
+      g.items.push(it);
+    }
+    return groups;
+  }
+
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
   const place = v => [v.city, v.region, v.country].filter(Boolean).join(', ') || 'Unknown';
 
   const HOT = /LinkedIn|Indeed|Glassdoor|Wellfound|Greenhouse|Lever|Workday|Handshake|Naukri/i;
@@ -213,22 +244,28 @@ const Visits = (() => {
     if (!box) return;
     const { visits = [], events = [], messages = [], stats: s } = data;
 
-    const msgCards = messages.map(m => {
-      const loc = [m.city, m.region, m.country].filter(Boolean).join(', ');
-      return `
-      <div class="msg-card">
-        <div class="msg-head">
-          <span class="msg-from">${esc(m.name || 'Anonymous')}</span>
-          ${m.email ? `<a class="msg-mail" href="mailto:${esc(m.email)}">${esc(m.email)}</a>` : ''}
-          <time class="msg-time">${esc(when(m.ts))}</time>
-        </div>
-        <div class="msg-body">${esc(m.body)}</div>
-        <div class="msg-meta">
-          ${flag(m.cc)} ${esc(loc || 'Unknown')}${m.org ? ` · ${esc(m.org)}` : ''}${m.source && m.source !== 'Direct' ? ` · via ${esc(m.source)}` : ''}
-        </div>
-        ${m.email ? `<a class="msg-reply" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Re: your message on saahil-doryu.github.io')}">Reply →</a>` : ''}
-      </div>`;
-    }).join('');
+    const msgDays = groupByDay(messages);
+    const msgCards = msgDays.map(g => `
+      <div class="day-head">
+        <span>${esc(g.label)}</span>
+        <em>${plural(g.items.length, 'message', 'messages')}</em>
+      </div>
+      ${g.items.map(m => {
+        const loc = [m.city, m.region, m.country].filter(Boolean).join(', ');
+        return `
+        <div class="msg-card">
+          <div class="msg-head">
+            <span class="msg-from">${esc(m.name || 'Anonymous')}</span>
+            ${m.email ? `<a class="msg-mail" href="mailto:${esc(m.email)}">${esc(m.email)}</a>` : ''}
+            <time class="msg-time">${esc(clockOf(m.ts))}</time>
+          </div>
+          <div class="msg-body">${esc(m.body)}</div>
+          <div class="msg-meta">
+            ${flag(m.cc)} ${esc(loc || 'Unknown')}${m.org ? ` · ${esc(m.org)}` : ''}${m.source && m.source !== 'Direct' ? ` · via ${esc(m.source)}` : ''}
+          </div>
+          ${m.email ? `<a class="msg-reply" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Re: your message on saahil-doryu.github.io')}">Reply →</a>` : ''}
+        </div>`;
+      }).join('')}`).join('');
 
     // Attach each action to the person who did it, via their session id.
     const bySid = {};
@@ -251,14 +288,22 @@ const Visits = (() => {
       </li>`;
     }).join('');
 
-    const rows = visits.map(v => `
+    const visitDays = groupByDay(visits);
+    const rows = visitDays.map(g => `
+      <tr class="day-row">
+        <td colspan="4">
+          <span>${esc(g.label)}</span>
+          <em>${plural(g.items.length, 'visit', 'visits')}</em>
+        </td>
+      </tr>
+      ${g.items.map(v => `
       <tr${HOT.test(v.source || '') ? ' class="hot"' : ''}>
-        <td class="c-when">${esc(when(v.ts))}</td>
+        <td class="c-when">${esc(clockOf(v.ts))}</td>
         <td class="c-where"><span class="fl">${flag(v.cc)}</span> ${esc(place(v))}
             ${v.org ? `<span class="org">${esc(v.org)}</span>` : ''}</td>
         <td class="c-src">${HOT.test(v.source || '') ? '🔥 ' : ''}${esc(v.source || 'Direct')}</td>
         <td class="c-dev">${esc([v.device, v.os, v.browser].filter(Boolean).join(' · '))}</td>
-      </tr>`).join('');
+      </tr>`).join('')}`).join('');
 
     box.innerHTML = `
       <div class="admin-kpis">
@@ -268,7 +313,8 @@ const Visits = (() => {
         <div><b>${nf.format(s?.countries ?? 0)}</b><span>countries</span></div>
       </div>
 
-      <h4 class="admin-h">Messages${messages.length ? ` (${messages.length})` : ''}</h4>
+      <h4 class="admin-h">Messages${messages.length
+        ? ` — ${plural(messages.length,'message','messages')} across ${plural(msgDays.length,'day','days')}` : ''}</h4>
       ${messages.length
         ? `<div class="msgs">${msgCards}</div>`
         : '<p class="admin-empty">No messages yet.</p>'}
@@ -278,7 +324,8 @@ const Visits = (() => {
         ? `<ul class="ev-list">${evByTime}</ul>`
         : '<p class="admin-empty">No resume downloads or demo launches yet.</p>'}
 
-      <h4 class="admin-h">Who opened your page</h4>
+      <h4 class="admin-h">Who opened your page${visits.length
+        ? ` — ${plural(visits.length,'visit','visits')} across ${plural(visitDays.length,'day','days')}` : ''}</h4>
       ${visits.length ? `
       <div class="admin-table-wrap">
         <table class="admin-table">
