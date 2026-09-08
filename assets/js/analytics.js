@@ -245,11 +245,13 @@ const Visits = (() => {
     const { visits = [], events = [], messages = [], stats: s } = data;
 
     const msgDays = groupByDay(messages);
-    const msgCards = msgDays.map(g => `
-      <div class="day-head">
-        <span>${esc(g.label)}</span>
-        <em>${plural(g.items.length, 'message', 'messages')}</em>
-      </div>
+    const msgCards = msgDays.map((g, i) => `
+      <details class="day"${i === 0 ? ' open' : ''}>
+        <summary>
+          <span class="day-name">${esc(g.label)}</span>
+          <span class="day-count">${plural(g.items.length, 'message', 'messages')}</span>
+        </summary>
+        <div class="day-body">
       ${g.items.map(m => {
         const loc = [m.city, m.region, m.country].filter(Boolean).join(', ');
         return `
@@ -265,7 +267,9 @@ const Visits = (() => {
           </div>
           ${m.email ? `<a class="msg-reply" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Re: your message on saahil-doryu.github.io')}">Reply →</a>` : ''}
         </div>`;
-      }).join('')}`).join('');
+      }).join('')}
+        </div>
+      </details>`).join('');
 
     // Attach each action to the person who did it, via their session id.
     const bySid = {};
@@ -288,22 +292,30 @@ const Visits = (() => {
       </li>`;
     }).join('');
 
+    // Grid rows rather than a table: <details> cannot wrap <tr>, and a shared
+    // grid template keeps the columns aligned across every day.
     const visitDays = groupByDay(visits);
-    const rows = visitDays.map(g => `
-      <tr class="day-row">
-        <td colspan="4">
-          <span>${esc(g.label)}</span>
-          <em>${plural(g.items.length, 'visit', 'visits')}</em>
-        </td>
-      </tr>
-      ${g.items.map(v => `
-      <tr${HOT.test(v.source || '') ? ' class="hot"' : ''}>
-        <td class="c-when">${esc(clockOf(v.ts))}</td>
-        <td class="c-where"><span class="fl">${flag(v.cc)}</span> ${esc(place(v))}
-            ${v.org ? `<span class="org">${esc(v.org)}</span>` : ''}</td>
-        <td class="c-src">${HOT.test(v.source || '') ? '🔥 ' : ''}${esc(v.source || 'Direct')}</td>
-        <td class="c-dev">${esc([v.device, v.os, v.browser].filter(Boolean).join(' · '))}</td>
-      </tr>`).join('')}`).join('');
+    const rows = visitDays.map((g, i) => {
+      const hotCount = g.items.filter(v => HOT.test(v.source || '')).length;
+      return `
+      <details class="day"${i === 0 ? ' open' : ''}>
+        <summary>
+          <span class="day-name">${esc(g.label)}</span>
+          ${hotCount ? `<span class="day-hot">🔥 ${hotCount}</span>` : ''}
+          <span class="day-count">${plural(g.items.length, 'visit', 'visits')}</span>
+        </summary>
+        <div class="day-body v-list">
+          ${g.items.map(v => `
+          <div class="v-row${HOT.test(v.source || '') ? ' hot' : ''}">
+            <span class="v-time">${esc(clockOf(v.ts))}</span>
+            <span class="v-where">${flag(v.cc)} ${esc(place(v))}
+              ${v.org ? `<em>${esc(v.org)}</em>` : ''}</span>
+            <span class="v-src">${HOT.test(v.source || '') ? '🔥 ' : ''}${esc(v.source || 'Direct')}</span>
+            <span class="v-dev">${esc([v.device, v.os, v.browser].filter(Boolean).join(' · '))}</span>
+          </div>`).join('')}
+        </div>
+      </details>`;
+    }).join('');
 
     box.innerHTML = `
       <div class="admin-kpis">
@@ -326,13 +338,7 @@ const Visits = (() => {
 
       <h4 class="admin-h">Who opened your page${visits.length
         ? ` — ${plural(visits.length,'visit','visits')} across ${plural(visitDays.length,'day','days')}` : ''}</h4>
-      ${visits.length ? `
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>When</th><th>Where</th><th>Came from</th><th>Device</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>` : '<p class="admin-empty">No visits recorded yet.</p>'}
+      ${visits.length ? rows : '<p class="admin-empty">No visits recorded yet.</p>'}
 
       <p class="admin-foot">
         Rows highlighted 🔥 arrived from LinkedIn or a job board.
