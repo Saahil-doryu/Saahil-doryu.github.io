@@ -213,8 +213,8 @@ const CONFIG = {
     url:         "https://saahil-doryu.github.io/",
     title:       "Saahil Darisipudi — Machine Learning Engineer",
     description: "M.S. AI/ML student at Saint Louis University building computer vision and geospatial ML systems. Live, runnable project demos.",
-    themeDefault: "light",           // "light" (warm paper) | "dark"
-    accent:       "rust",            // "rust" | "ink" | "forest" | "plum"
+    themeDefault: "dark",
+    accent:       "emerald",       // "violet" | "cyan" | "emerald" | "amber" | "rose"
     footerNote:   "Built and deployed by me — source on GitHub."
   }
 };

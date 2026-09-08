@@ -94,7 +94,7 @@ function initHero(){
     $('#availPill').hidden = false;
   }
   if (has(id.location)) {
-    const el = $('#heroLoc'); el.textContent = `Based in ${id.location}`; el.hidden = false;
+    const el = $('#heroLoc'); el.textContent = `📍 Based in ${id.location}`; el.hidden = false;
   }
 
   // resume CTA
@@ -122,23 +122,22 @@ function initHero(){
   $$('#heroSocials .social').forEach(a =>
     a.addEventListener('click', () => Visits.action('contact', a.dataset.tip)));
 
-  // Rotating "I build ..." line. A quiet cross-fade rather than a typewriter —
-  // the typing-and-deleting effect reads as template boilerplate.
+  // rotating "I build ..." line
   const words = (id.building || []).filter(has);
   if (!words.length) { $('.hero-build').hidden = true; return; }
   const out = $('#rotator');
-  out.textContent = words[0];
-  if (words.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-  let w = 0;
-  setInterval(() => {
-    out.classList.add('fading');
-    setTimeout(() => {
-      w = (w + 1) % words.length;
-      out.textContent = words[w];
-      out.classList.remove('fading');
-    }, 340);
-  }, 3400);
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    out.textContent = words[0]; return;
+  }
+  let w = 0, ch = 0, del = false;
+  (function type(){
+    const word = words[w];
+    out.textContent = word.slice(0, ch);
+    if (!del && ch < word.length)      { ch++; setTimeout(type, 62); }
+    else if (!del)                     { del = true;  setTimeout(type, 1500); }
+    else if (ch > 0)                   { ch--; setTimeout(type, 28); }
+    else                               { del = false; w = (w + 1) % words.length; setTimeout(type, 260); }
+  })();
 }
 
 
@@ -394,7 +393,7 @@ function initContact(){
 
   $('#contactGrid').innerHTML = cards.map((c, i) => {
     const masked = c.protect;
-    const shown  = masked ? 'Tap to reveal' : c.value;
+    const shown  = masked ? '•••• •••• ••  ·  tap to reveal' : c.value;
     const inner = `
       <span class="cc-icon">${ICON[c.icon]}</span>
       <span>
