@@ -178,6 +178,47 @@
 </section>
 
 
+<!-- ══════════════════════════════ MESSAGE ══════════════════════════════ -->
+<section class="section" id="message" hidden>
+  <div class="wrap msg-wrap">
+    <div class="section-head center">
+      <h2>Leave me a message</h2>
+      <p class="section-sub">Goes straight to me. A reply address is optional but helps if you'd like one.</p>
+    </div>
+
+    <form class="msg-form" id="msgForm" novalidate>
+      <div class="msg-row">
+        <label class="field">
+          <span>Name</span>
+          <input type="text" id="msgName" name="name" maxlength="80" autocomplete="name" placeholder="Optional">
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="msgEmail" name="email" maxlength="120" autocomplete="email" placeholder="Optional — for a reply">
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Message</span>
+        <textarea id="msgBody" name="body" rows="5" maxlength="2000" required
+                  placeholder="Anything at all — a question, a role you're hiring for, feedback on a project."></textarea>
+        <small class="field-hint"><span id="msgCount">0</span> / 2000</small>
+      </label>
+
+      <!-- Honeypot: hidden from people, irresistible to bots. -->
+      <div class="hp" aria-hidden="true">
+        <label>Website<input type="text" id="msgWebsite" name="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+
+      <div class="msg-actions">
+        <button class="btn btn-primary" type="submit" id="msgSubmit">Send message</button>
+        <p class="msg-status" id="msgStatus" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+  </div>
+</section>
+
+
 <!-- ══════════════════════════════ VISITORS ══════════════════════════════ -->
 <section class="section alt" id="visitors" hidden>
   <div class="wrap">

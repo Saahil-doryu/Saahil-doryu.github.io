@@ -134,6 +134,51 @@ export default {
         return json({ ok: true }, origin);
       }
 
+      /* ───────────── POST /message ─────────────
+         A form on a public page will attract spam, so this is guarded by a
+         honeypot field, length limits, and a per-IP hourly cap.            */
+      if (path === '/message' && request.method === 'POST') {
+        const b = await request.json().catch(() => ({}));
+
+        // Honeypot: a field hidden from people. Anything that fills it is a
+        // bot. Answer "ok" so it doesn't learn, but store nothing.
+        if (String(b.website || '').trim() !== '')
+          return json({ ok: true }, origin);
+
+        const body = String(b.body || '').trim();
+        if (body.length < 5)    return json({ ok: false, error: 'Message is too short.' }, origin, 400);
+        if (body.length > 2000) return json({ ok: false, error: 'Message is too long (2000 characters max).' }, origin, 400);
+
+        const name  = String(b.name  || '').trim().slice(0, 80);
+        const email = String(b.email || '').trim().slice(0, 120);
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))
+          return json({ ok: false, error: "That email address doesn't look right." }, origin, 400);
+
+        const ip     = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
+        const iphash = await hashIP(ip, env.IP_SALT || 'portfolio');
+
+        const recent = await env.DB.prepare(
+          'SELECT COUNT(*) AS n FROM messages WHERE iphash = ?1 AND ts > ?2'
+        ).bind(iphash, Date.now() - 3600000).first();
+        if ((recent?.n ?? 0) >= 5)
+          return json({ ok: false, error: 'Too many messages just now. Try again in an hour.' }, origin, 429);
+
+        const cf = request.cf || {};
+        await env.DB.prepare(`
+          INSERT INTO messages (ts,sid,iphash,name,email,body,city,region,country,cc,org,source)
+          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)
+        `).bind(
+          Date.now(), String(b.sid || '').slice(0, 40), iphash,
+          name || null, email || null, body,
+          cf.city || null, cf.region || null,
+          cf.country ? countryName(cf.country) : null,
+          cf.country || null, cf.asOrganization || null,
+          friendlySource(b.ref)
+        ).run();
+
+        return json({ ok: true }, origin);
+      }
+
       /* ───────────── GET /stats  (public — numbers only) ───────────── */
       if (path === '/stats' && request.method === 'GET')
         return json(await stats(env), origin);
@@ -146,12 +191,18 @@ export default {
           return json({ error: 'Not authorised' }, origin, 401);
 
         const limit = Math.min(Number(url.searchParams.get('limit')) || 100, 500);
-        const [visits, events, s] = await Promise.all([
+        const [visits, events, messages, s] = await Promise.all([
           env.DB.prepare('SELECT ts,sid,city,region,country,cc,org,source,ref,device,os,browser,path FROM visits ORDER BY ts DESC LIMIT ?1').bind(limit).all(),
           env.DB.prepare('SELECT ts,kind,detail,sid FROM events ORDER BY ts DESC LIMIT ?1').bind(limit).all(),
+          env.DB.prepare('SELECT id,ts,name,email,body,city,region,country,cc,org,source FROM messages ORDER BY ts DESC LIMIT ?1').bind(limit).all(),
           stats(env)
         ]);
-        return json({ ok: true, stats: s, visits: visits.results || [], events: events.results || [] }, origin);
+        return json({
+          ok: true, stats: s,
+          visits:   visits.results   || [],
+          events:   events.results   || [],
+          messages: messages.results || []
+        }, origin);
       }
 
       return json({ error: 'Not found' }, origin, 404);

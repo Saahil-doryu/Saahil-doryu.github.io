@@ -282,6 +282,42 @@ a{color:inherit;text-decoration:none}
 .admin-foot{margin-top:16px;font-size:12.5px;color:var(--text-3)}
 .linklike{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--accent);cursor:pointer;text-decoration:underline}
 
+/* ════════════════════════════ MESSAGE FORM ════════════════════════════ */
+.msg-wrap{max-width:660px;margin:0 auto}
+.msg-form{display:grid;gap:16px}
+.msg-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:560px){.msg-row{grid-template-columns:1fr}}
+.field{display:grid;gap:7px}
+.field>span{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-3)}
+.field input,.field textarea{
+  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:12px 14px;color:var(--text);font-family:inherit;font-size:15px;line-height:1.55;
+  transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.field textarea{resize:vertical;min-height:130px}
+.field input::placeholder,.field textarea::placeholder{color:var(--text-3)}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field input[aria-invalid="true"],.field textarea[aria-invalid="true"]{border-color:#e5484d}
+.field-hint{font-size:11.5px;color:var(--text-3);justify-self:end;font-variant-numeric:tabular-nums}
+/* honeypot — off-screen rather than display:none, which some bots skip */
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.msg-actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.msg-status{font-size:14px;font-weight:600}
+.msg-status.ok{color:var(--ok)}
+.msg-status.err{color:#e5484d}
+.msg-form.sent{opacity:.55;pointer-events:none}
+
+/* messages inside the private panel */
+.msgs{display:grid;gap:10px}
+.msg-card{background:var(--surface-2);border:1px solid var(--line-soft);border-left:3px solid var(--accent);
+  border-radius:var(--r);padding:15px 17px}
+.msg-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:8px}
+.msg-from{font-weight:700;font-size:14.5px}
+.msg-mail{font-size:13px;color:var(--accent);font-weight:600;word-break:break-all}
+.msg-time{margin-left:auto;font-size:11.5px;color:var(--text-3);font-family:var(--mono);white-space:nowrap}
+.msg-body{font-size:14.5px;color:var(--text);white-space:pre-wrap;word-wrap:break-word}
+.msg-meta{margin-top:9px;font-size:11.5px;color:var(--text-3)}
+.msg-reply{display:inline-block;margin-top:10px;font-size:13px;font-weight:600;color:var(--accent)}
+
 /* actions attributed to the person who performed them */
 .ev{align-items:flex-start}
 .ev-txt{display:flex;flex-direction:column;gap:2px}

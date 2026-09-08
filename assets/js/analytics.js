@@ -147,6 +147,67 @@ const Visits = (() => {
     post('/event', { sid: state.sid, kind, detail });
   }
 
+  /* ══════════════════ MESSAGE FORM ══════════════════ */
+  function initMessageForm(){
+    const form = document.getElementById('msgForm');
+    const sec  = document.getElementById('message');
+    if (!form || !sec) return;
+    if (!API) { sec.hidden = true; return; }   // no backend, no form
+    sec.hidden = false;
+
+    const body   = document.getElementById('msgBody');
+    const count  = document.getElementById('msgCount');
+    const status = document.getElementById('msgStatus');
+    const submit = document.getElementById('msgSubmit');
+
+    body?.addEventListener('input', () => {
+      if (count) count.textContent = body.value.length;
+      body.setAttribute('aria-invalid', 'false');
+    });
+
+    const say = (text, kind) => {
+      status.textContent = text;
+      status.className = 'msg-status' + (kind ? ' ' + kind : '');
+    };
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const text  = body.value.trim();
+      const email = document.getElementById('msgEmail').value.trim();
+
+      if (text.length < 5) {
+        body.setAttribute('aria-invalid', 'true'); body.focus();
+        return say('Please write a little more.', 'err');
+      }
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+        const el = document.getElementById('msgEmail');
+        el.setAttribute('aria-invalid', 'true'); el.focus();
+        return say("That email address doesn't look right.", 'err');
+      }
+
+      submit.disabled = true;
+      say('Sending…', '');
+
+      const res = await post('/message', {
+        sid:     state.sid || sessionId(),
+        name:    document.getElementById('msgName').value.trim(),
+        email,
+        body:    text,
+        website: document.getElementById('msgWebsite').value,   // honeypot
+        ref:     document.referrer && !document.referrer.includes(location.hostname) ? document.referrer : ''
+      });
+
+      if (res && res.ok) {
+        form.classList.add('sent');
+        say('Thank you — your message reached me. I read every one.', 'ok');
+      } else {
+        submit.disabled = false;
+        say(res?.error || 'Could not send that. Please try again, or email me directly.', 'err');
+      }
+    });
+  }
+
   /* ══════════════════ YOUR PRIVATE PANEL ══════════════════ */
   const when = ts => {
     const d = new Date(Number(ts));
@@ -182,7 +243,24 @@ const Visits = (() => {
   function renderLog(data){
     const box = document.getElementById('adminBody');
     if (!box) return;
-    const { visits = [], events = [], stats: s } = data;
+    const { visits = [], events = [], messages = [], stats: s } = data;
+
+    const msgCards = messages.map(m => {
+      const loc = [m.city, m.region, m.country].filter(Boolean).join(', ');
+      return `
+      <div class="msg-card">
+        <div class="msg-head">
+          <span class="msg-from">${esc(m.name || 'Anonymous')}</span>
+          ${m.email ? `<a class="msg-mail" href="mailto:${esc(m.email)}">${esc(m.email)}</a>` : ''}
+          <time class="msg-time">${esc(when(m.ts))}</time>
+        </div>
+        <div class="msg-body">${esc(m.body)}</div>
+        <div class="msg-meta">
+          ${flag(m.cc)} ${esc(loc || 'Unknown')}${m.org ? ` · ${esc(m.org)}` : ''}${m.source && m.source !== 'Direct' ? ` · via ${esc(m.source)}` : ''}
+        </div>
+        ${m.email ? `<a class="msg-reply" href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Re: your message on saahil-doryu.github.io')}">Reply →</a>` : ''}
+      </div>`;
+    }).join('');
 
     // Attach each action to the person who did it, via their session id.
     const bySid = {};
@@ -221,6 +299,11 @@ const Visits = (() => {
         <div><b>${nf.format(s?.today ?? 0)}</b><span>today</span></div>
         <div><b>${nf.format(s?.countries ?? 0)}</b><span>countries</span></div>
       </div>
+
+      <h4 class="admin-h">Messages${messages.length ? ` (${messages.length})` : ''}</h4>
+      ${messages.length
+        ? `<div class="msgs">${msgCards}</div>`
+        : '<p class="admin-empty">No messages yet.</p>'}
 
       <h4 class="admin-h">What people did</h4>
       ${events.length
@@ -359,6 +442,7 @@ const Visits = (() => {
     // Show a cached number immediately so the section isn't blank on load.
     try { paintStats(JSON.parse(S.get(K.stats) || 'null')); } catch {}
 
+    initMessageForm();
     initAdmin();
 
     if (isOwner() || isBot()) {        // your visits and bots: show numbers, record nothing
