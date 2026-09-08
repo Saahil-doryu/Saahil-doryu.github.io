@@ -189,8 +189,22 @@ python3 -m http.server 8747
 Then open `http://localhost:8747`. Note that opening `index.html` directly as a `file://`
 URL will *not* work properly — use the server.
 
-If you edit a file and see no change, it's the browser cache: hard-reload with
-**Cmd+Shift+R**.
+### If you edit a file and don't see the change
+
+The CSS and JS in `index.html` carry a version stamp:
+
+```html
+<link rel="stylesheet" href="assets/css/style.css?v=20260908a">
+<script src="assets/js/config.js?v=20260908a"></script>
+```
+
+**Whenever you change a CSS or JS file, bump that string** (any new value works —
+`20260908b`, `v2`, today's date). Browsers treat a different URL as a different file
+and fetch it immediately.
+
+Without bumping it, GitHub Pages sends `cache-control: max-age=600`, so returning
+visitors can keep the old stylesheet for up to ten minutes — and Safari sometimes holds
+it considerably longer. That is almost always the cause when a change "didn't apply".
 
 ---
 
