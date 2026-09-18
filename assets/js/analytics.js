@@ -176,6 +176,116 @@ const Visits = (() => {
     });
   }
 
+  /* ══════════════════ RESUME MANAGER ══════════════════
+     Upload, replace or remove the resume without touching git. The file
+     lives in Cloudflare KV; removing an upload falls back to the copy
+     committed in the repo, so the site is never left without one.
+     ──────────────────────────────────────────────────── */
+  const resumeUrl = () => API ? `${API}/resume` : (CONFIG.resume?.file || 'resume/resume.pdf');
+
+  const fmtBytes = n => n < 1024 ? `${n} B`
+    : n < 1048576 ? `${(n/1024).toFixed(0)} KB`
+    : `${(n/1048576).toFixed(1)} MB`;
+
+  function initResumeManager(){
+    const wrap = document.getElementById('adminResume');
+    if (!wrap || !API) return;
+
+    const fileEl   = document.getElementById('rmFile');
+    const metaEl   = document.getElementById('rmMeta');
+    const input    = document.getElementById('rmInput');
+    const upBtn    = document.getElementById('rmUpload');
+    const delBtn   = document.getElementById('rmDelete');
+    const viewBtn  = document.getElementById('rmView');
+    const statusEl = document.getElementById('rmStatus');
+    let picked = null;
+
+    const say = (msg, kind) => {
+      statusEl.textContent = msg;
+      statusEl.className = 'rm-status' + (kind ? ' ' + kind : '');
+    };
+
+    viewBtn.href = resumeUrl();
+
+    async function refresh(){
+      try {
+        const r = await fetch(`${API}/resume/meta`, { cache: 'no-store' });
+        const d = await r.json();
+        if (d.uploaded) {
+          fileEl.textContent = d.filename || 'resume.pdf';
+          metaEl.textContent = `${fmtBytes(d.size || 0)} · uploaded ${when(d.uploadedAt)}`;
+          delBtn.hidden = false;
+        } else {
+          fileEl.textContent = 'resume.pdf';
+          metaEl.textContent = 'the copy committed in the repo — nothing uploaded yet';
+          delBtn.hidden = true;
+        }
+      } catch {
+        fileEl.textContent = 'could not reach the server';
+        metaEl.textContent = '';
+      }
+    }
+
+    input.addEventListener('change', () => {
+      picked = input.files?.[0] || null;
+      if (!picked) { upBtn.disabled = true; return; }
+      if (picked.type !== 'application/pdf' && !picked.name.toLowerCase().endsWith('.pdf')) {
+        picked = null; upBtn.disabled = true;
+        return say('That is not a PDF.', 'err');
+      }
+      if (picked.size > 10 * 1048576) {
+        picked = null; upBtn.disabled = true;
+        return say('Too large — 10MB limit.', 'err');
+      }
+      upBtn.disabled = false;
+      say(`Ready to upload ${picked.name} (${fmtBytes(picked.size)}).`, '');
+    });
+
+    upBtn.addEventListener('click', async () => {
+      if (!picked) return;
+      upBtn.disabled = true;
+      say('Uploading…', '');
+      try {
+        const r = await fetch(`${API}/resume`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + ownerKey(),
+            'Content-Type': 'application/pdf',
+            'X-Filename': picked.name
+          },
+          body: picked
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.ok) throw new Error(d.error || `Upload failed (${r.status}).`);
+        say('Uploaded. This is what visitors download now.', 'ok');
+        picked = null; input.value = '';
+        refresh();
+      } catch (e) {
+        upBtn.disabled = false;
+        say(e.message || 'Upload failed.', 'err');
+      }
+    });
+
+    delBtn.addEventListener('click', async () => {
+      if (!confirm('Remove the uploaded resume?\n\nThe site falls back to the copy committed in the repo. This cannot be undone.')) return;
+      say('Removing…', '');
+      try {
+        const r = await fetch(`${API}/resume`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + ownerKey() }
+        });
+        if (!r.ok) throw new Error(`Failed (${r.status}).`);
+        say('Removed. Back to the repo copy.', 'ok');
+        refresh();
+      } catch (e) {
+        say(e.message || 'Could not remove it.', 'err');
+      }
+    });
+
+    wrap.hidden = false;
+    refresh();
+  }
+
   /* ══════════════════ YOUR PRIVATE PANEL ══════════════════ */
   const when = ts => {
     const d = new Date(Number(ts));
@@ -367,6 +477,7 @@ const Visits = (() => {
     S.set(K.key, key);
     document.getElementById('adminGate')?.setAttribute('hidden','');
     document.getElementById('adminBody')?.removeAttribute('hidden');
+    initResumeManager();
     renderLog(data);
   }
 
@@ -448,5 +559,5 @@ const Visits = (() => {
     else setTimeout(recordVisit, 700);
   }
 
-  return { init, action, isMuted: isOwner };
+  return { init, action, isMuted: isOwner, resumeUrl };
 })();

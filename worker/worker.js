@@ -11,8 +11,14 @@
      POST /message   store a message left through the form
 
    Private (require the OWNER_KEY secret):
-     GET  /log       who visited, where from, what they did, their messages
-     GET  /stats     the aggregate counts
+     GET    /log     who visited, where from, what they did, their messages
+     GET    /stats   the aggregate counts
+     POST   /resume  replace the resume PDF
+     DELETE /resume  remove it, reverting to the copy in the site repo
+
+   Public, read-only:
+     GET  /resume       the current resume PDF
+     GET  /resume/meta  its filename, size and upload time
 
    Raw IP addresses are never stored — only a salted hash, used to count
    unique visitors and to rate-limit the message form.
@@ -28,8 +34,9 @@ const ALLOWED_ORIGINS = [
 
 const corsHeaders = origin => ({
   'Access-Control-Allow-Origin':  ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Filename',
+  'Access-Control-Expose-Headers': 'X-Resume-Source',
   'Access-Control-Max-Age':       '86400',
   'Vary':                         'Origin'
 });
@@ -71,6 +78,11 @@ const isBot = ua => !ua ||
   /bot|crawl|spider|slurp|headless|lighthouse|preview|scrape|facebookexternalhit|whatsapp|telegrambot|embedly|python-requests|curl|wget|go-http|axios|okhttp/i.test(ua);
 
 const DAY = 86400000;
+
+// Where /resume falls back to when nothing has been uploaded: the copy
+// committed in the site repo.
+const FALLBACK_RESUME   = 'https://saahil-doryu.github.io/resume/resume.pdf';
+const MAX_RESUME_BYTES  = 10 * 1024 * 1024;
 
 export default {
   async fetch(request, env) {
@@ -182,6 +194,87 @@ export default {
         ).run();
 
         return json({ ok: true }, origin);
+      }
+
+      /* ═══════════════ RESUME ═══════════════
+         GET    /resume       public — the PDF itself
+         GET    /resume/meta  public — filename, size, when it was uploaded
+         POST   /resume       owner  — replace it (raw PDF bytes in the body)
+         DELETE /resume       owner  — remove the upload, reverting to the
+                                       copy committed in the site repo
+         ─────────────────────────────────────── */
+      if (path === '/resume' || path === '/resume/meta') {
+        if (!env.RESUME_KV)
+          return json({ error: 'RESUME_KV not bound. See README step 5.' }, origin, 500);
+
+        /* ── read the current PDF ── */
+        if (path === '/resume' && request.method === 'GET') {
+          const stored = await env.RESUME_KV.getWithMetadata('resume.pdf', { type: 'arrayBuffer' });
+          if (stored?.value) {
+            const meta = stored.metadata || {};
+            return new Response(stored.value, {
+              headers: {
+                ...corsHeaders(origin),
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `inline; filename="${(meta.filename || 'resume.pdf').replace(/"/g,'')}"`,
+                'Cache-Control': 'public, max-age=300',
+                'X-Resume-Source': 'uploaded'
+              }
+            });
+          }
+          // Nothing uploaded: proxy the copy in the site repo rather than
+          // redirecting, so this URL always answers with our own CORS headers.
+          const fallback = await fetch(FALLBACK_RESUME, { cf: { cacheTtl: 300 } });
+          if (!fallback.ok) return json({ error: 'No resume available.' }, origin, 404);
+          return new Response(fallback.body, {
+            headers: {
+              ...corsHeaders(origin),
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': 'inline; filename="resume.pdf"',
+              'Cache-Control': 'public, max-age=300',
+              'X-Resume-Source': 'repo'
+            }
+          });
+        }
+
+        /* ── what is currently stored ── */
+        if (path === '/resume/meta' && request.method === 'GET') {
+          const { metadata } = await env.RESUME_KV.getWithMetadata('resume.pdf');
+          return json(metadata
+            ? { uploaded: true, ...metadata }
+            : { uploaded: false }, origin);
+        }
+
+        /* ── replace it ── */
+        if (path === '/resume' && request.method === 'POST') {
+          if (!isOwner(request, env)) return json({ error: 'Not authorised' }, origin, 401);
+
+          const bytes = await request.arrayBuffer();
+          if (bytes.byteLength === 0)
+            return json({ ok: false, error: 'Empty file.' }, origin, 400);
+          if (bytes.byteLength > MAX_RESUME_BYTES)
+            return json({ ok: false, error: `Too large — ${(bytes.byteLength/1048576).toFixed(1)}MB, limit is 10MB.` }, origin, 413);
+
+          // Check the magic number rather than trusting the declared type:
+          // every PDF starts with "%PDF-".
+          const head = new TextDecoder().decode(new Uint8Array(bytes.slice(0, 5)));
+          if (head !== '%PDF-')
+            return json({ ok: false, error: 'That is not a PDF file.' }, origin, 415);
+
+          const filename = (request.headers.get('X-Filename') || 'resume.pdf')
+            .replace(/[^\w.\-]/g, '_').slice(0, 80);
+
+          const metadata = { filename, size: bytes.byteLength, uploadedAt: Date.now() };
+          await env.RESUME_KV.put('resume.pdf', bytes, { metadata });
+          return json({ ok: true, ...metadata }, origin);
+        }
+
+        /* ── remove it, falling back to the repo copy ── */
+        if (path === '/resume' && request.method === 'DELETE') {
+          if (!isOwner(request, env)) return json({ error: 'Not authorised' }, origin, 401);
+          await env.RESUME_KV.delete('resume.pdf');
+          return json({ ok: true, uploaded: false }, origin);
+        }
       }
 
       /* ───────────── GET /stats  (private — owner key required) ─────────────

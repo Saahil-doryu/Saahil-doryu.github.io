@@ -346,3 +346,18 @@ a{color:inherit;text-decoration:none}
   .v-src{grid-column:2;color:var(--accent);font-size:12px}
   .v-dev{grid-column:2;font-size:11.5px}
 }
+
+/* ════════════════════ RESUME MANAGER (private panel) ════════════════════ */
+.rm{border:1px solid var(--line);border-radius:var(--r);padding:18px;background:var(--surface-2)}
+.rm-now{display:flex;flex-direction:column;gap:3px;margin-bottom:16px}
+.rm-label{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}
+.rm-file{font-weight:700;font-size:15px;word-break:break-all}
+.rm-meta{font-size:12.5px;color:var(--text-3)}
+.rm-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rm-actions .btn{padding:9px 15px;font-size:13px}
+.rm-pick{cursor:pointer;margin:0}
+.rm-danger{color:#e5484d;border-color:rgba(229,72,77,.35)}
+.rm-danger:hover{background:rgba(229,72,77,.10);border-color:#e5484d}
+.rm-status{margin-top:12px;font-size:13px;font-weight:600;min-height:1.2em}
+.rm-status.ok{color:var(--ok)}
+.rm-status.err{color:#e5484d}

@@ -97,13 +97,14 @@ function initHero(){
     const el = $('#heroLoc'); el.textContent = `📍 Based in ${id.location}`; el.hidden = false;
   }
 
-  // resume CTA
+  // resume CTA — Visits.resumeUrl() points at the Worker when one is
+  // configured, so an upload from the admin panel is what people get.
   if (C.resume?.enabled && has(C.resume.file)) {
     const b = $('#heroResumeBtn');
-    b.href = C.resume.file;
+    b.href = Visits.resumeUrl();
     b.setAttribute('download', C.resume.filename || 'resume.pdf');
     b.hidden = false;
-    wireResumeDownload(b, C.resume.file, C.resume.filename || 'resume.pdf');
+    wireResumeDownload(b, Visits.resumeUrl(), C.resume.filename || 'resume.pdf');
   }
 
   // social row
@@ -337,10 +338,11 @@ function initResume(){
   }
   $('#resume').hidden = false;
 
+  const src = Visits.resumeUrl();
   const dl = $('#resumeDownload');
-  dl.href = r.file; dl.setAttribute('download', r.filename || 'resume.pdf');
-  wireResumeDownload(dl, r.file, r.filename || 'resume.pdf');
-  $('#resumeOpen').href = r.file;
+  dl.href = src; dl.setAttribute('download', r.filename || 'resume.pdf');
+  wireResumeDownload(dl, src, r.filename || 'resume.pdf');
+  $('#resumeOpen').href = src;
   if (has(r.lastUpdated)) $('#resumeUpdated').textContent = `Last updated ${r.lastUpdated}`;
 
   if (r.inlineViewer !== false) {
@@ -353,17 +355,17 @@ function initResume(){
            <p><strong>Open the resume</strong></p>
            <p style="margin-top:6px;font-size:14px">iPhones and iPads can't preview PDFs inside a page.</p>
            <p style="margin-top:16px">
-             <a class="btn btn-primary" href="${esc(r.file)}" target="_blank" rel="noopener">View PDF</a>
+             <a class="btn btn-primary" href="${esc(src)}" target="_blank" rel="noopener">View PDF</a>
            </p>
            <p style="margin-top:12px;font-size:12.5px;color:var(--text-3)">
              To save it: open, then tap Share → Save to Files.
            </p>
          </div>`
-      : `<object data="${esc(r.file)}#toolbar=1&navpanes=0&view=FitH" type="application/pdf"
+      : `<object data="${esc(src)}#toolbar=1&navpanes=0&view=FitH" type="application/pdf"
                  style="display:block;width:100%;height:min(78vh,940px)">
            <div class="pdf-fallback">
              <p>Your browser can't display the PDF inline.</p>
-             <p style="margin-top:14px"><a class="btn btn-primary" href="${esc(r.file)}" target="_blank" rel="noopener">Open the resume</a></p>
+             <p style="margin-top:14px"><a class="btn btn-primary" href="${esc(src)}" target="_blank" rel="noopener">Open the resume</a></p>
            </div>
          </object>`;
   } else {

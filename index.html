@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="assets/css/style.css?v=20260908c">
+<link rel="stylesheet" href="assets/css/style.css?v=20260917a">
 </head>
 
 <body>
@@ -242,6 +242,28 @@
         <p class="admin-msg" id="adminMsg" hidden></p>
       </div>
 
+      <!-- Resume manager. Only rendered once the owner key unlocks. -->
+      <div id="adminResume" hidden>
+        <h4 class="admin-h">Resume</h4>
+        <div class="rm">
+          <div class="rm-now">
+            <span class="rm-label">Currently live</span>
+            <span class="rm-file" id="rmFile">checking…</span>
+            <span class="rm-meta" id="rmMeta"></span>
+          </div>
+          <div class="rm-actions">
+            <label class="btn btn-ghost rm-pick">
+              Choose PDF
+              <input type="file" id="rmInput" accept="application/pdf,.pdf" hidden>
+            </label>
+            <button class="btn btn-primary" id="rmUpload" disabled>Upload</button>
+            <button class="btn btn-ghost rm-danger" id="rmDelete" hidden>Remove upload</button>
+            <a class="btn btn-ghost" id="rmView" target="_blank" rel="noopener">View</a>
+          </div>
+          <p class="rm-status" id="rmStatus" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+
       <div id="adminBody" hidden></div>
     </div>
 
@@ -260,8 +282,8 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="assets/js/config.js?v=20260908c"></script>
-<script src="assets/js/analytics.js?v=20260908c"></script>
-<script src="assets/js/main.js?v=20260908c"></script>
+<script src="assets/js/config.js?v=20260917a"></script>
+<script src="assets/js/analytics.js?v=20260917a"></script>
+<script src="assets/js/main.js?v=20260917a"></script>
 </body>
 </html>

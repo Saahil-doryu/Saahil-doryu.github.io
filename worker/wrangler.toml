@@ -9,6 +9,12 @@ binding       = "DB"
 database_name = "portfolio-visits"
 database_id   = "8c3f49bf-3832-4677-85a6-d62b76027353"
 
+# Stores the resume PDF you upload from the ?admin=1 panel. Created with:
+#   wrangler kv namespace create RESUME_KV
+[[kv_namespaces]]
+binding = "RESUME_KV"
+id      = "ef9f8d5793a748e09248b27f16a59bfb"
+
 [vars]
 # Any random string. Only used to salt the IP hash so unique-visitor counting
 # works without ever storing an actual IP address.
